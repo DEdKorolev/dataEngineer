@@ -1,0 +1,6 @@
+Для запуска скрипта необходимо
+1) в файле main.py указать реквизиты БД для подключения;
+2) установить модули из файла requirements.txt;
+3) версия python для стабильной работы указана в файле runtime.txt;
+4) при проблемах с работой cx_Oracle попробовать шаги из рекомендаций по установке:
+	https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html
