@@ -36,7 +36,7 @@ USING (
         
 		-- Чтобы перекрыть час между отчетами вычтем 25/24 часа
         WHERE ft.trans_date > (
-								SELECT *
+								SELECT max(max_date)
 								FROM meta_increment
 								) - 25/24 
         )

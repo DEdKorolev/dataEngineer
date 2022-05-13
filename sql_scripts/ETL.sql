@@ -14,7 +14,7 @@ delete from stg_increment
 insert into stg_increment
 select src.*  from src_increment src
 where src."date" >
-                    (select max_date from meta_increment
+                    (select max(max_date) from meta_increment
                     )
 //
 
