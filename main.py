@@ -3,7 +3,6 @@
 # хранилища и ежедневно строит отчет.
 import os
 import sys
-
 import easygui as eg
 import time
 import datetime
@@ -15,64 +14,11 @@ from watchdog.events import FileSystemEventHandler
 from sqlalchemy import Integer, Date, Float, String, create_engine
 
 
-# Подключение к БД
-# Окно авторизации
-while True:
-    print("Авторизация:")
-    try:
-        fieldValues = eg.multpasswordbox(msg='Введите данные',
-                                         title='Авторизация',
-                                         fields=['IP',
-                                                'Port',
-                                                'Имя БД',
-                                                'Логин',
-                                                'Пароль'])
-        user = fieldValues[3]
-        password = fieldValues[4]
-        dsn = f'{fieldValues[0]}:{fieldValues[1]}/{fieldValues[2]}'
-
-        # Коннекты к БД
-        con = cx_Oracle.connect(user=user, password=password, dsn=dsn)
-        engine = create_engine(f'oracle://{user}:{password}@{dsn}')
-        break # Если закконнектится
-
-    # Если коннект неуспешен
-    except cx_Oracle.DatabaseError:
-        print("Неверные авторизационные данные")
-        result = eg.ynbox(msg='Неверные авторизационные данные,'
-                              'попробовать снова?',
-                 title='Отказ в подключении к БД',
-                 choices=['Да', 'Нет'])
-
-        #Если решили попробовать ввести данные снова
-        if result == True:
-            continue
-        # Если отказались повторно вводить данные
-        sys.exit()
-
-    # Если отказались от ввода данных изначально
-    except TypeError:
-        sys.exit()
-
-print(f'\t\t\t\t\t\tОК')
-
-# Директория с файлами и скриптами (по дефолту папка с проектом)
-directory = ''
-
-# Создание директории для входящих excel-файлов
-if not os.path.isdir(f'{directory}files_in'):
-            os.mkdir(f'{directory}files_in')
-
-# Создание директории для отчетов в формате excel
-if not os.path.isdir(f'{directory}reports'):
-            os.mkdir(f'{directory}reports')
-
-
 def open_file(sql_script):
     """Для открытия файлов со скриптами
     и последовательного считывания скриптов из них"""
 
-    with open(f'{directory}sql_scripts\\{sql_script}.sql') as file_object:
+    with open(f'{directory_sql_scripts}sql_scripts\\{sql_script}.sql') as file_object:
         full_sql = file_object.read()
         sql_commands = full_sql.split('//')
         with con.cursor() as cursor:
@@ -85,10 +31,69 @@ def open_file(sql_script):
                     continue
         print(f'Скрипт {sql_script} отработал успешно')
 
+
+def eg_ynbox(msg, title):
+    """Вызов GUI с выбором ответов"""
+
+    print(f'{title}. {msg}')
+    result = eg.ynbox(msg=msg,
+                      title=title,
+                      choices=['Да', 'Нет'])
+
+    # Если выбрано 'Нет'
+    if not result:
+        os.abort()
+
+
+# Подключение к БД
+# Окно авторизации
+while True:
+    print('Авторизация:')
+    try:
+        fieldValues = eg.multpasswordbox(msg='Введите данные',
+                                         title='Авторизация',
+                                         fields=['IP',
+                                                 'Port',
+                                                 'Имя БД',
+                                                 'Логин',
+                                                 'Пароль'])
+        user = fieldValues[3].upper()
+        password = fieldValues[4]
+        dsn = f'{fieldValues[0]}:{fieldValues[1]}/{fieldValues[2]}'
+
+        # Коннекты к БД
+        con = cx_Oracle.connect(user=user, password=password, dsn=dsn)
+        engine = create_engine(f'oracle://{user}:{password}@{dsn}')
+        break  # Если закконнектится
+
+    # Если коннект неуспешен
+    except cx_Oracle.DatabaseError:
+        eg_ynbox('Неверные авторизационные данные, попробовать снова?',
+                 'Отказ в подключении к БД')
+        continue
+
+    # Если отказались от ввода данных изначально
+    except TypeError:
+        sys.exit()
+
+print(f'\t\t\t\t\t\tОК')
+
+directory_sql_scripts = ''
+
+# Директория для поступления новых excel файлов
+directory_observer = eg.diropenbox(msg='Выберите отслеживаемую директорию')
+if not directory_observer:
+    sys.exit()
+
+# Директория для отчетов
+directory_reports = eg.diropenbox(msg='Выберите директорию для сохранения отчетов')
+if not directory_reports:
+    sys.exit()
+
 # Запуск скрипта DDL
 print('Запуск скрипта DDL')
-eg.msgbox('Запуск скрипта DDL')
 open_file('DDL')
+
 
 class EventHandler(FileSystemEventHandler):
     """Для отслеживания появления новых файлов"""
@@ -100,7 +105,7 @@ class EventHandler(FileSystemEventHandler):
         # Поиск последнего файла в директории
         time.sleep(5)
         print('Поиск последнего добавленного файла:')
-        file = glob.glob(f'{directory}files_in\\*.xlsx')[-1]
+        file = glob.glob(f'{directory_observer}\\*.xlsx')[-1]
         print(f"\t\t\t\t\t\tОК")
         time.sleep(5)
         # Перевод excel в df
@@ -146,7 +151,7 @@ class EventHandler(FileSystemEventHandler):
         print('Экспорт отчета в Excel')
         now = datetime.datetime.now()
         df = pd.read_sql('SELECT * FROM report', engine)
-        df.to_excel(f'{directory}reports\\report_'
+        df.to_excel(f'{directory_reports}\\report_'
                     f'{now.date()}_'
                     f'{now.hour}-'
                     f'{now.minute}-'
@@ -154,10 +159,13 @@ class EventHandler(FileSystemEventHandler):
                     index=False
                     )
         print(f'\t\t\t\t\t\tОК')
+        eg_ynbox('Отчёт сформирован, продолжить работу?',
+                 'Уведомление.')
+
 
 if __name__ == "__main__":
 
-    path = f'{directory}files_in' # отслеживаемая директория
+    path = directory_observer  # отслеживаемая директория
     event_handler = EventHandler()
     observer = Observer()
     observer.schedule(event_handler, path, recursive=True)
